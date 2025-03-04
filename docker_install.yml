@@ -1,0 +1,5 @@
+---
+- hosts: ec2_instances
+  become: yes
+  roles:
+    - install_docker
