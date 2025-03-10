@@ -1,6 +1,4 @@
 ---
-# Install Docker and Docker Compose on Ubuntu
-
 # Ensure system is updated
 - name: Update apt package cache
   apt:
@@ -16,49 +14,52 @@
       - ca-certificates
       - curl
       - software-properties-common
+      - gnupg
     state: present
   become: yes
 
 # Add Docker GPG key
 - name: Add Docker GPG key
-  apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
+  shell: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg"
+  args:
+    creates: /usr/share/keyrings/docker-archive-keyring.gpg
   become: yes
 
 # Add Docker APT repository
 - name: Add Docker APT repository
   apt_repository:
-    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release | lower }} stable"
+    repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release | lower }} stable"
     state: present
   become: yes
 
 # Install Docker
 - name: Install Docker CE
   apt:
-    name: docker-ce
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
     state: latest
   become: yes
 
 # Start and enable Docker service
-- name: Start Docker service
-  service:
+- name: Start and enable Docker service
+  systemd:
     name: docker
     state: started
     enabled: yes
   become: yes
 
-# Install Docker Compose
-- name: Download Docker Compose binary
-  get_url:
-    url: "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
-    dest: "/usr/local/bin/docker-compose"
-    mode: 'u+x'
+# Install Docker Compose plugin (recommended method)
+- name: Install Docker Compose Plugin
+  apt:
+    name: docker-compose-plugin
+    state: latest
   become: yes
 
 # Verify Docker Compose installation
 - name: Verify Docker Compose version
-  command: /usr/local/bin/docker-compose --version
+  command: docker compose version
   register: result
   failed_when: result.rc != 0
   changed_when: false
@@ -72,8 +73,7 @@
     append: yes
   become: yes
 
-# Refresh group membership (manual logout required)
-- name: Refresh group membership (manual logout required)
-  shell: "newgrp docker"
-  become: yes
-  ignore_errors: yes
+# Notify user to log out and log back in
+- name: Notify user about Docker group change
+  debug:
+    msg: "Please log out and log back in for Docker group changes to take effect."
